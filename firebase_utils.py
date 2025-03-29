@@ -13,5 +13,5 @@ db = firebase.database()
 
 # Function to fetch radar data from Firebase
 def get_radar_data():
-    data = db.child("RadarData").get().val()
-    return data
+    data = db.child("RadarData").get().val()  # Replace with your path
+    return data if data else {}  # Return empty dictionary if no data

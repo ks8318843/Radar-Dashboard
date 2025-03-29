@@ -3,32 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar Dashboard - Real-Time</title>
+    <title>Radar Dashboard - Table + Line Chart + Polar Chart</title>
+    
+    <!-- Socket.io and Chart.js -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
-        h1 { color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        h1, h2 { text-align: center; color: #333; }
+        .container { display: flex; justify-content: space-between; flex-wrap: wrap; }
+        .box { width: 48%; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
         th { background-color: #f2f2f2; }
         canvas { max-width: 100%; height: 400px; }
-        .container { display: flex; justify-content: space-between; }
-        .table-container, .chart-container { width: 48%; }
-        .radar-chart-container { width: 100%; margin-top: 30px; }
         @media (max-width: 768px) {
-            .container { flex-direction: column; }
-            .table-container, .chart-container { width: 100%; }
+            .box { width: 100%; }
         }
     </style>
 </head>
+
 <body>
 
-<h1>Radar Dashboard - Real-Time Visualization</h1>
+<h1>Radar Dashboard - Table, Line Chart, and Polar Chart</h1>
 
+<!-- Table Section -->
 <div class="container">
-    <!-- Table -->
-    <div class="table-container">
+    <div class="box">
         <h2>Radar Data Table</h2>
         <table id="radar-table">
             <thead>
@@ -43,31 +45,34 @@
         </table>
     </div>
 
-    <!-- Line Chart -->
-    <div class="chart-container">
-        <h2>Radar Line Chart</h2>
+    <!-- Line Chart Section -->
+    <div class="box">
+        <h2>Distance Line Chart</h2>
         <canvas id="lineChart"></canvas>
     </div>
-</div>
 
-<!-- Radar Circular Chart -->
-<div class="radar-chart-container">
-    <h2>Radar Circular Chart</h2>
-    <canvas id="circularRadarChart"></canvas>
+    <!-- Polar Chart Section -->
+    <div class="box">
+        <h2>Radar Polar Chart</h2>
+        <canvas id="polarChart"></canvas>
+    </div>
 </div>
 
 <script>
     const socket = io.connect("http://127.0.0.1:5000");
 
-    // Initialize Line Chart
+    // Chart.js configuration
     const lineCtx = document.getElementById('lineChart').getContext('2d');
+    const polarCtx = document.getElementById('polarChart').getContext('2d');
+
+    // Initialize Line Chart
     const lineChart = new Chart(lineCtx, {
         type: 'line',
         data: {
-            labels: [],
+            labels: [],     // Angles
             datasets: [{
                 label: 'Distance (cm)',
-                data: [],
+                data: [],     // Distances
                 borderColor: 'rgba(75, 192, 192, 1)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 borderWidth: 2
@@ -76,29 +81,29 @@
         options: {
             responsive: true,
             scales: {
-                x: {
-                    title: { display: true, text: 'Angle (°)' }
-                },
-                y: {
-                    title: { display: true, text: 'Distance (cm)' },
-                    beginAtZero: true
-                }
+                x: { title: { display: true, text: 'Angle (°)' } },
+                y: { title: { display: true, text: 'Distance (cm)' }, beginAtZero: true }
             }
         }
     });
 
-    // Initialize Circular Radar Chart
-    const radarCtx = document.getElementById('circularRadarChart').getContext('2d');
-    const radarChart = new Chart(radarCtx, {
-        type: 'radar',
+    // Initialize Polar Chart
+    const polarChart = new Chart(polarCtx, {
+        type: 'polarArea',
         data: {
-            labels: [],
+            labels: [],     // Angles
             datasets: [{
                 label: 'Distance (cm)',
-                data: [],
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 2
+                data: [],     // Distances
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.6)',
+                    'rgba(54, 162, 235, 0.6)',
+                    'rgba(255, 206, 86, 0.6)',
+                    'rgba(75, 192, 192, 0.6)',
+                    'rgba(153, 102, 255, 0.6)',
+                    'rgba(255, 159, 64, 0.6)'
+                ],
+                borderWidth: 1
             }]
         },
         options: {
@@ -106,9 +111,7 @@
             scales: {
                 r: {
                     suggestedMin: 0,
-                    suggestedMax: 100,
-                    angleLines: { display: true },
-                    ticks: { stepSize: 10 }
+                    suggestedMax: 100
                 }
             }
         }
@@ -121,14 +124,14 @@
 
     socket.on('update_data', (data) => {
         const tableBody = document.getElementById("radar-data");
-        tableBody.innerHTML = "";  // Clear old data
+        tableBody.innerHTML = "";  // Clear old table data
 
         if (data && Object.keys(data).length > 0) {
             const angles = [];
             const distances = [];
 
             for (let angle in data) {
-                // Add to table
+                // Add data to table
                 let row = `<tr>
                     <td>${angle}</td>
                     <td>${data[angle]}</td>
@@ -136,7 +139,7 @@
                 tableBody.innerHTML += row;
 
                 // Add to chart data
-                angles.push(angle);
+                angles.push(`${angle}°`);
                 distances.push(data[angle]);
             }
 
@@ -145,10 +148,10 @@
             lineChart.data.datasets[0].data = distances;
             lineChart.update();
 
-            // Update Circular Radar Chart
-            radarChart.data.labels = angles;
-            radarChart.data.datasets[0].data = distances;
-            radarChart.update();
+            // Update Polar Chart
+            polarChart.data.labels = angles;
+            polarChart.data.datasets[0].data = distances;
+            polarChart.update();
         } else {
             tableBody.innerHTML = `<tr><td colspan="2">No data available</td></tr>`;
         }
